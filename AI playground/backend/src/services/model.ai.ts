@@ -4,14 +4,13 @@ import { ChatCohere } from "@langchain/cohere";
 import config from "../config/config.js";
 
 
-
 export const geminiModel = new ChatGoogle({
-    model: "gemini-flash-latest",
+    model: "gemini-3.5-flash",
     apiKey: config.GOOGLE_API_KEY,
 })
 
 export const mistralAIModel = new ChatMistralAI({
-    model: "mistral-medium-latest",
+    model: "mistral-small-latest",
     apiKey: config.MISTRAL_API_KEY,
 })
 
