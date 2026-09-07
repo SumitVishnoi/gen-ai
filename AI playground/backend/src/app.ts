@@ -1,15 +1,9 @@
-import express from 'express';
-import userMessage from "./services/graph.ai.service.js"
+import express from "express"
 
-const app = express();
-app.use(express.json())
+const app = express()
 
-app.post("/use-graph", async (req, res) => {
-    await userMessage("write code for sliding window pattern in DSA ?")
+app.get("/", (req, res)=> {
+    console.log("server started")
 })
-
-
-
-
 
 export default app;
