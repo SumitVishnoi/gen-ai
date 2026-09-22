@@ -15,6 +15,7 @@
   "dependencies": {
     "@langchain/core": "^1.2.12",
     "@langchain/google": "^0.2.6",
+    "@langchain/mistralai": "^1.2.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
