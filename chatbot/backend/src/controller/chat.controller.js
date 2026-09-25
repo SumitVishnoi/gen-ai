@@ -56,3 +56,94 @@ export const sendMessage = async (req, res) => {
     });
   }
 };
+
+//get chats
+export const getChats = async (req, res) => {
+  try {
+    console.log(req.user._id)
+    const user = req.user._id
+
+    const chats = await chatModel.find({
+      user
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: "Chats fetched successfully",
+      chats
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    })
+  }
+}
+
+// get messsages
+export const getMessages = async (req, res) => {
+  try {
+    const userId = req.user._id
+    const {chatId} = req.params
+
+    const chat = await chatModel.findOne({
+      _id: chatId,
+      user: userId
+    })
+
+    if(!chat) {
+      return res.status(404).json({
+        success: false,
+        message: "chat not found"
+      })
+    }
+
+    const messages = await messageModel.find({
+      chat: chatId
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: "Message fetched successfully",
+      messages
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    })
+  }
+}
+
+//delete chat
+export const deleteChat = async (req, res) => {
+  try {
+    const {chatId} = req.params
+
+    await chatModel.findOneAndDelete({
+      _id: chatId,
+      user: req.user._id
+    })
+
+    if(!chat) {
+      return res.status(404).json({
+        success: false,
+        message: "chat not found"
+      })
+    }
+
+    await messageModel.deleteMany({
+      chat: chatId
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: "Chat deleted successfully"
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    })
+  }
+}
