@@ -1,156 +1,177 @@
 import express from "express";
-import { createAgent, tool } from "langchain";
+import { createAgent, tool, humanInTheLoopMiddleware } from "langchain";
 import * as z from "zod";
 import { ChatGoogle } from "@langchain/google";
+import { MemorySaver } from "@langchain/langgraph";
+import readline from "readline/promises";
+import { stdin as input, stdout as output } from "process";
 
 const app = express();
 app.use(express.json());
 
+/* ---------------- EMAIL DATA ---------------- */
+
 const email = {
   messages: [
-    {
-      id: "173ijiod83j899933",
-      threadId: "23iojdjj3892mdo5",
-      labelIds: ["INBOX", "UNREAD"],
-      snippet:
-        "Hello team, I need to request a refund for the full stack course I bought 4 days ago. I am facing some financial difficulties and cannot continue...",
-      payload: {
-        headers: [
-          { name: "From", value: "mike.chen@example.com" },
-          { name: "To", value: "support@team.com" },
-          {
-            name: "Subject",
-            value: "Course Refund Request - Order #CR-2025-1532",
-          },
-          { name: "Date", value: "Sat, 2 Nov 2025 09:15:00 +0000" },
-        ],
-        body: {
-          data: "SGVDOAIOJN3UUnjnjfj78NJKNIYYni89ji89jyjk8kui89ioNu99k89ucj89jj893kjJioujdkjhi89HIhjIIOJIDOU",
-        },
-      },
-      internalDate: "1730547000000",
-    },
-
-    {
-      id: "173ijiod83j899934",
-      threadId: "23iojdjj3892mdo6",
-      labelIds: ["INBOX", "UNREAD"],
-      snippet:
-        "I purchased the React course last week but would like to request a refund. The course does not match what I expected...",
-      payload: {
-        headers: [
-          { name: "From", value: "sarah.wilson@example.com" },
-          { name: "To", value: "support@team.com" },
-          {
-            name: "Subject",
-            value: "Refund Request for React Course - Order #RC-88421",
-          },
-          { name: "Date", value: "Sat, 2 Nov 2025 10:30:00 +0000" },
-        ],
-        body: {
-          data: "UmVmdW5kIHJlcXVlc3QgZm9yIFJlYWN0IGNvdXJzZQ==",
-        },
-      },
-      internalDate: "1730552400000",
-    },
-
-    {
-      id: "173ijiod83j899935",
-      threadId: "23iojdjj3892mdo7",
-      labelIds: ["INBOX"],
-      snippet:
-        "I am unable to access the course videos after logging into my account. Could you please help me resolve this issue?",
-      payload: {
-        headers: [
-          { name: "From", value: "john.doe@example.com" },
-          { name: "To", value: "support@team.com" },
-          { name: "Subject", value: "Unable to Access Course Videos" },
-          { name: "Date", value: "Sat, 2 Nov 2025 11:05:00 +0000" },
-        ],
-        body: {
-          data: "Q291cnNlIHZpZGVvcyBhcmUgbm90IGFjY2Vzc2libGU=",
-        },
-      },
-      internalDate: "1730555100000",
-    },
-
-    {
-      id: "173ijiod83j899936",
-      threadId: "23iojdjj3892mdo8",
-      labelIds: ["INBOX", "UNREAD"],
-      snippet:
-        "I was charged twice for the same course subscription. Please check the transaction and refund the duplicate payment...",
-      payload: {
-        headers: [
-          { name: "From", value: "emily.johnson@example.com" },
-          { name: "To", value: "billing@team.com" },
-          {
-            name: "Subject",
-            value: "Duplicate Payment Charged - Order #PAY-48291",
-          },
-          { name: "Date", value: "Sat, 2 Nov 2025 12:20:00 +0000" },
-        ],
-        body: {
-          data: "RHVwbGljYXRlIHBheW1lbnQgcmVmdW5kIHJlcXVlc3Q=",
-        },
-      },
-      internalDate: "1730559600000",
-    },
-
-    {
-      id: "173ijiod83j899937",
-      threadId: "23iojdjj3892mdo9",
-      labelIds: ["INBOX"],
-      snippet:
-        "I forgot my password and cannot log into my account. I have tried resetting it but I am not receiving the reset email...",
-      payload: {
-        headers: [
-          { name: "From", value: "olivia.martin@example.com" },
-          { name: "To", value: "support@team.com" },
-          { name: "Subject", value: "Unable to Reset Password" },
-          { name: "Date", value: "Sat, 2 Nov 2025 14:25:00 +0000" },
-        ],
-        body: {
-          data: "UGFzc3dvcmQgcmVzZXQgaXNzdWU=",
-        },
-      },
-      internalDate: "1730567100000",
-    },
+    // your existing emails...
   ],
 };
 
-const getEmails = tool(() => {
-    return JSON.stringify(email)
-}, {
-  name: "get_emails",
-  description: "get the emails from inbox",
-});
+/* ---------------- TOOLS ---------------- */
 
-const refund = tool(({email}) => {
-    return "successfully! ✅"
-}, {
-  name: "refund",
-  description: "Process the refund for given emails",
-  schema: z.object({
-    emails: z.array(z.string()).describe("The list of the email which need to be refund")
-  })
-});
+const getEmails = tool(
+  () => {
+    return JSON.stringify(email);
+  },
+  {
+    name: "get_emails",
+    description: "Get the emails from inbox",
+  }
+);
+
+const refund = tool(
+  ({ emails }) => {
+    console.log("\n💰 Processing refunds...");
+    console.log("Emails:", emails);
+
+    return "Successfully refunded! ✅";
+  },
+  {
+    name: "refund",
+    description:
+      "Process refunds for the specified email addresses. Call this when refund requests are found.",
+    schema: z.object({
+      emails: z
+        .array(z.string())
+        .describe("Email addresses whose refund should be processed"),
+    }),
+  }
+);
+
+/* ---------------- MODEL ---------------- */
 
 const geminiModel = new ChatGoogle({
-    model: "gemini-3.5-flash",
-    apiKey: process.env.GOOGLE_API_KEY
+  model: "gemini-3.5-flash",
+  apiKey: process.env.GOOGLE_API_KEY,
 });
 
-const agent = createAgent({ 
-    model: geminiModel,
-    tools: [getEmails, refund] 
+/* ---------------- AGENT ---------------- */
+
+const agent = createAgent({
+  model: geminiModel,
+
+  tools: [getEmails, refund],
+
+  middleware: [
+    humanInTheLoopMiddleware({
+      interruptOn: {
+        refund: {
+          allowedDecisions: ["approve", "reject"],
+        },
+      },
+    }),
+  ],
+
+  checkpointer: new MemorySaver(),
 });
 
+/* ---------------- TERMINAL ---------------- */
 
-const result = await agent.invoke({
-    messages: [{ role: "user", content: "check there is any refund request, I want to refunds them" }],
-})
+const rl = readline.createInterface({
+  input,
+  output,
+});
 
-console.log(result.messages[result.messages.length - 1].content);
+const threadId = "terminal-thread-1";
+
+async function main() {
+  console.log("🤖 Email Agent");
+  console.log("Type your request below.\n");
+
+  while (true) {
+    const userQuery = await rl.question("You: ");
+
+    if (!userQuery.trim()) {
+      continue;
+    }
+
+    if (userQuery.toLowerCase() === "exit") {
+      console.log("Goodbye 👋");
+      break;
+    }
+
+    const result = await agent.invoke(
+      {
+        messages: [
+          {
+            role: "user",
+            content: userQuery,
+          },
+        ],
+      },
+      {
+        configurable: {
+          thread_id: threadId,
+        },
+      }
+    );
+
+    /* ---------------- INTERRUPT ---------------- */
+
+    if (result.__interrupt__) {
+      console.log("\n" + "=".repeat(60));
+      console.log("🛑 HUMAN APPROVAL REQUIRED");
+      console.log("=".repeat(60));
+
+      const interrupt = result.__interrupt__[0];
+
+      console.log("\nInterrupt ID:");
+      console.log(interrupt.id);
+
+      console.log("\nInterrupt Data:");
+
+      console.dir(interrupt.value, {
+        depth: null,
+        colors: true,
+      });
+
+      console.log("\n" + "-".repeat(60));
+
+      const decision = await rl.question(
+        "\nApprove or reject? (approve/reject): "
+      );
+
+      console.log("-".repeat(60));
+
+      if (
+        decision.toLowerCase() !== "approve" &&
+        decision.toLowerCase() !== "reject"
+      ) {
+        console.log("❌ Invalid decision.");
+        continue;
+      }
+
+      /*
+       * Resume the interrupted agent here.
+       *
+       * Use the HITL resume command supported by
+       * your installed LangChain version.
+       */
+
+      console.log(`\nHuman decision: ${decision}`);
+    } else {
+      const lastMessage =
+        result.messages[result.messages.length - 1];
+
+      console.log("\n🤖 Agent:", lastMessage.content);
+    }
+
+    console.log("\n");
+  }
+
+  rl.close();
+}
+
+main();
 
 export default app;
