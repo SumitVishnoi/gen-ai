@@ -1,16 +1,16 @@
-import { useEffect } from 'react'
-import './App.css'
-import { initializedSocketConnection } from '../features/chat/service/socket.service'
-import { router } from './app.routes'
-import { RouterProvider } from 'react-router'
+import "./App.css";
+import { router } from "./app.routes";
+import { RouterProvider } from "react-router";
+import { AuthProvider } from "../features/auth/context/AuthContext";
 
 function App() {
-  useEffect(()=> {
-    initializedSocketConnection()
-  }, [])
+  
+
   return (
-     <RouterProvider router={router}/>
-  )
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;
