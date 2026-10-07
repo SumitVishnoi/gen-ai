@@ -3,28 +3,33 @@ import { ChatGoogle } from "@langchain/google";
 
 const geminiModel = new ChatGoogle({
   apiKey: process.env.GOOGLE_API_KEY,
-  model: "gemini-3.5-flash",
+  model: "gemini-3.5-flash-lite",
 });
 
 export async function generateResponse(messages) {
-  const response = await geminiModel.invoke({
-    messages: [
-      new SystemMessage(`
-                You are a helpful and precise assistant for answering questions.
-                If you don't know the answer, say you don't know. 
-                If the question requires up-to-date information, use the "searchInternet" tool to get the latest information from the internet and then answer based on the search results.
-            `),
-      ...messages.map((msg) => {
-        if (msg.role == "user") {
-          return new HumanMessage(msg.content);
-        } else if (msg.role == "ai") {
-          return new AIMessage(msg.content);
-        }
-      }),
-    ],
-  });
+  const response = await geminiModel.invoke([
+    new SystemMessage(`
+      You are a helpful and precise assistant for answering questions.
+      If you don't know the answer, say you don't know.
+      If the question requires up-to-date information, use the "searchInternet"
+      tool to get the latest information from the internet and then answer
+      based on the search results.
+    `),
 
-  return response.messages[response.messages.length - 1].text;
+    ...messages.map((msg) => {
+      if (msg.role === "user") {
+        return new HumanMessage(msg.content);
+      }
+
+      if (msg.role === "ai") {
+        return new AIMessage(msg.content);
+      }
+
+      return null;
+    }).filter(Boolean),
+  ]);
+
+  return response.text;
 }
 
 export async function generateChatTitle(message) {
