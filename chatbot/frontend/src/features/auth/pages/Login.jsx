@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useAuth } from "../context/AuthContext";
+import useAuth from "../hook/useAuth.js";
 import { Sparkles, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { AuthContext } from "../context/AuthContext.jsx";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const { login } = useAuth();
+  const { handleLogin } = useAuth();
   const navigate = useNavigate();
+  const {user, loading, setLoading} = useContext(AuthContext)
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +21,7 @@ const Login = () => {
     setLoading(true);
     setErrorMsg("");
 
-    const result = await login({ email, password });
+    const result = await handleLogin({ email, password });
     setLoading(false);
 
     if (result.success) {
@@ -29,6 +30,12 @@ const Login = () => {
       setErrorMsg(result.message || "Invalid credentials");
     }
   };
+
+  useEffect(() => {
+    if (user && !loading) {
+      navigate("/");
+    }
+  }, [user, loading, navigate]);
 
   return (
     <div className="min-h-screen w-screen bg-[#FBFBFA] flex flex-col justify-center items-center px-4 py-12 select-none">

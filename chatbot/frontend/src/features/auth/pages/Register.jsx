@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useAuth } from "../context/AuthContext";
+import useAuth from "../hook/useAuth";
 import { Sparkles, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 
 const Register = () => {

@@ -13,7 +13,7 @@ import {
   LogOut,
   UserCheck,
 } from "lucide-react";
-import { useAuth } from "../../auth/context/AuthContext";
+import useAuth from "../../auth/hook/useAuth";
 
 export const Sidebar = ({
   activeTab = "home",

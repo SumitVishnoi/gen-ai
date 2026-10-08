@@ -7,7 +7,7 @@ import { StarterCards } from "../components/StarterCards";
 import { ActiveChatView } from "../components/ActiveChatView";
 import { ChatHistoryDrawer } from "../components/ChatHistoryDrawer";
 import { useChat } from "../hook/useChat";
-import { useAuth } from "../../auth/context/AuthContext";
+import useAuth from "../../auth/hook/useAuth";
 import { initializedSocketConnection } from "../service/chat.socket";
 
 
