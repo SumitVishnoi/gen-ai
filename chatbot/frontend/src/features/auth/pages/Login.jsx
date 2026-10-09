@@ -1,8 +1,8 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import useAuth from "../hook/useAuth.js";
 import { Sparkles, ArrowRight, Loader2, AlertCircle } from "lucide-react";
-import { AuthContext } from "../context/AuthContext.jsx";
+
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -10,32 +10,35 @@ const Login = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const { handleLogin } = useAuth();
   const navigate = useNavigate();
-  const {user, loading, setLoading} = useContext(AuthContext)
+  const [load, setLoad] = useState(false)
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!email || !password) {
-      setErrorMsg("Please fill in all fields");
-      return;
-    }
-    setLoading(true);
-    setErrorMsg("");
 
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!email.trim() || !password) {
+    setErrorMsg("Please fill in all fields");
+    return;
+  }
+
+  setLoad(true);
+  setErrorMsg("");
+
+  try {
     const result = await handleLogin({ email, password });
-    setLoading(false);
 
     if (result.success) {
-      navigate("/");
+      navigate("/", { replace: true });
     } else {
-      setErrorMsg(result.message || "Invalid credentials");
+      setErrorMsg(result.message || "Invalid email or password");
     }
-  };
+  } catch (error) {
+    setErrorMsg("Something went wrong. Please try again.");
+  } finally {
+    setLoad(false);
+  }
+};
 
-  useEffect(() => {
-    if (user && !loading) {
-      navigate("/");
-    }
-  }, [user, loading, navigate]);
 
   return (
     <div className="min-h-screen w-screen bg-[#FBFBFA] flex flex-col justify-center items-center px-4 py-12 select-none">
@@ -94,10 +97,10 @@ const Login = () => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={load}
             className="w-full mt-2 py-2.5 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-semibold shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
           >
-            {loading ? (
+            {load ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>

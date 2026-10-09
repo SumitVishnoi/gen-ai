@@ -54,7 +54,7 @@ export const useChat = () => {
         setMessages(data.messages);
       } else {
         setMessages([]);
-      }
+      }cd 
     } catch (err) {
       console.warn("Failed to load messages for chat:", chatId, err?.message);
       setError(err?.message || "Failed to load messages");
