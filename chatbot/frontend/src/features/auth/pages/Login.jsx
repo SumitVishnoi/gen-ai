@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import useAuth from "../hook/useAuth.js";
 import { Sparkles, ArrowRight, Loader2, AlertCircle } from "lucide-react";
@@ -8,7 +8,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const { handleLogin } = useAuth();
+  const { handleLogin, user, loading } = useAuth();
   const navigate = useNavigate();
   const [load, setLoad] = useState(false)
 
@@ -38,6 +38,12 @@ const handleSubmit = async (e) => {
     setLoad(false);
   }
 };
+
+useEffect(()=> {
+  if(user && !loading) {
+    navigate("/")
+  }
+}, [user, loading, navigate])
 
 
   return (

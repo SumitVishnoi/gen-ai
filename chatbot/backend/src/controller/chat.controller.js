@@ -1,6 +1,7 @@
 import chatModel from "../models/chat.model.js";
 import messageModel from "../models/message.model.js";
-import { generateChatTitle, generateResponse } from "../services/ai.models.js";
+import { generateChatResponse } from "../services/ai.graph.js";
+import { generateChatTitle } from "../services/ai.models.js";
 
 //send message
 export const sendMessage = async (req, res) => {
@@ -35,7 +36,7 @@ export const sendMessage = async (req, res) => {
 
     const messages = await messageModel.find({chat: chatId || chat._id})
     
-    const result = await generateResponse(messages);
+    const result = await generateChatResponse(messages);
     const aiMessage = await messageModel.create({
       chat: chat._id,
       content: result,
