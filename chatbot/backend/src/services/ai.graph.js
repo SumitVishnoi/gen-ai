@@ -13,10 +13,9 @@ import { TavilySearch } from "@langchain/tavily";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { PineconeStore } from "@langchain/pinecone";
 import { Pinecone } from "@pinecone-database/pinecone";
-import { choice, TypeSafeClient } from "@typesafe-ai/sdk";
 
 // --------------------------------------------------
-// 1. Initialize clients
+//Initialize clients
 // --------------------------------------------------
 
 const geminiModel = new ChatGoogle({
@@ -24,7 +23,6 @@ const geminiModel = new ChatGoogle({
   model: "gemini-3.5-flash-lite",
 });
 
-const jev = new TypeSafeClient();
 
 const tavilySearch = new TavilySearch({
   maxResults: 5,
@@ -61,7 +59,7 @@ async function getVectorStore() {
 }
 
 // --------------------------------------------------
-// 2. Define graph state
+//Define graph state
 // --------------------------------------------------
 
 const ChatState = Annotation.Root({
@@ -95,52 +93,7 @@ const ChatState = Annotation.Root({
 });
 
 // --------------------------------------------------
-// 3. Jev: decide the required information source
-// --------------------------------------------------
-
-async function decisionNode(state) {
-  const { answers } = await jev.systemOne({
-    state: {
-      userMessage: state.userMessage,
-      uploadedFileAvailable: Boolean(state.documentId),
-    },
-
-    questions: {
-      route: choice(
-        "Choose the information source required to answer the user's request.",
-        {
-          direct:
-            "Answer using general knowledge. No external retrieval is needed.",
-
-          web:
-            "Search the internet for current information or external facts.",
-
-          rag:
-            "Search the user's uploaded document for relevant information.",
-
-          both:
-            "Use both the uploaded document and internet search.",
-        }
-      ),
-    },
-  });
-
-  let route = answers.route.choice;
-
-  // Enforce document availability on the backend.
-  if (!state.documentId) {
-    if (route === "rag") {
-      route = "direct";
-    } else if (route === "both") {
-      route = "web";
-    }
-  }
-
-  return { route };
-}
-
-// --------------------------------------------------
-// 4. Internet search node
+//Internet search node
 // --------------------------------------------------
 
 async function internetSearchNode(state) {
@@ -157,7 +110,7 @@ async function internetSearchNode(state) {
 }
 
 // --------------------------------------------------
-// 5. RAG retrieval node
+//RAG retrieval node
 // --------------------------------------------------
 
 async function ragSearchNode(state) {
@@ -197,7 +150,7 @@ async function ragSearchNode(state) {
 }
 
 // --------------------------------------------------
-// 6. The only Gemini generation node
+//The only Gemini generation node
 // --------------------------------------------------
 
 async function generateResponse(state) {
@@ -249,43 +202,21 @@ async function generateResponse(state) {
   };
 }
 
-// --------------------------------------------------
-// 7. Conditional routing
-// --------------------------------------------------
-
-function routeDecision(state) {
-  switch (state.route) {
-    case "web":
-      return "internetSearch";
-
-    case "rag":
-      return "ragSearch";
-
-    case "both":
-      return "internetSearch";
-
-    case "direct":
-    default:
-      return "generateResponse";
-  }
-}
 
 // --------------------------------------------------
-// 8. Build the LangGraph workflow
+//Build the LangGraph workflow
 // --------------------------------------------------
 
 const workflow = new StateGraph(ChatState)
-  .addNode("decision", decisionNode)
   .addNode("internetSearch", internetSearchNode)
   .addNode("ragSearch", ragSearchNode)
   .addNode("generateResponse", generateResponse)
 
-  .addEdge(START, "decision")
+  .addEdge(START, "generateResponse")
 
-  .addConditionalEdges("decision", routeDecision, {
+  .addConditionalEdges("generateResponse", {
     internetSearch: "internetSearch",
     ragSearch: "ragSearch",
-    generateResponse: "generateResponse",
   })
 
   // Both retrievals run sequentially in this version.
@@ -307,10 +238,10 @@ const workflow = new StateGraph(ChatState)
 export const chatbotGraph = workflow.compile();
 
 // --------------------------------------------------
-// 9. Public API for your existing backend
+//Public API for your existing backend
 // --------------------------------------------------
 
-export async function generateResponseForChat({
+export async function generateChatResponse({
   messages,
   documentId = null,
 }) {

@@ -10,6 +10,8 @@ export const sendMessage = async (req, res) => {
     console.log(userId);
     const { message, chat: chatId } = req.body;
 
+    console.log(req.file)
+
     if (!message) {
       return res.status(400).json({
         success: false,

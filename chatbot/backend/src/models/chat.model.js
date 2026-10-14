@@ -13,6 +13,12 @@ const chatSchema = new mongoose.Schema(
       type: String,
       default: "New Chat",
     },
+    files: [
+      {
+        url: String,
+        fileName: String,
+      },
+    ],
   },
   {
     timestamps: true,
