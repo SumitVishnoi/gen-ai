@@ -7,41 +7,73 @@ import { generateChatTitle } from "../services/ai.models.js";
 export const sendMessage = async (req, res) => {
   try {
     const userId = req.user._id;
-    console.log(userId);
-    const { message, chat: chatId } = req.body;
 
-    console.log(req.file)
+    // Match the frontend's { chatId, message } format.
+    const { message, chatId: requestedChatId, chat: legacyChatId } =
+      req.body;
 
-    if (!message) {
+    const existingChatId = requestedChatId || legacyChatId;
+
+    if (!message?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "content is required",
+        message: "Message content is required",
       });
     }
 
+    let chat;
     let title = null;
-    let chat = null;
 
-    if (!chatId) {
-       title = await generateChatTitle(message);
-       chat = await chatModel.create({
+    // Find the existing chat and verify ownership, or create a new one.
+    if (existingChatId) {
+      chat = await chatModel.findOne({
+        _id: existingChatId,
+        user: userId,
+      });
+
+      if (!chat) {
+        return res.status(404).json({
+          success: false,
+          message: "Chat not found",
+        });
+      }
+    } else {
+      title = await generateChatTitle(message.trim());
+
+      chat = await chatModel.create({
         user: userId,
         title,
       });
     }
 
-    const userMessage = await messageModel.create({
-        chat: chatId || chat._id,
-        content: message,
-        role: "user"
-    })
+    // Save the user's message.
+    await messageModel.create({
+      chat: chat._id,
+      content: message.trim(),
+      role: "user",
+    });
 
-    const messages = await messageModel.find({chat: chatId || chat._id})
-    
-    const result = await generateChatResponse(messages);
+    // Fetch conversation history in chronological order.
+    const chatMessages = await messageModel
+      .find({ chat: chat._id })
+      .sort({ createdAt: 1 });
+
+    // Pass plain messages in the format expected by LangGraph.
+    const messages = chatMessages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    // Keep RAG disabled until you supply a verified document ID.
+    const result = await generateChatResponse({
+      messages,
+      documentId: null,
+    });
+
+    // LangGraph returns { response, route }, not a plain string.
     const aiMessage = await messageModel.create({
       chat: chat._id,
-      content: result,
+      content: result.response,
       role: "ai",
     });
 
@@ -49,9 +81,12 @@ export const sendMessage = async (req, res) => {
       success: true,
       message: aiMessage,
       title,
-      chat
+      chat,
+      route: result.route,
     });
   } catch (error) {
+    console.error("sendMessage error:", error);
+
     return res.status(500).json({
       success: false,
       message: "Internal server error",

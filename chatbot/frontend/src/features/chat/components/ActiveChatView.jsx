@@ -1,6 +1,15 @@
 import React, { useEffect, useRef } from "react";
-import { Sparkles, Bot, User, Copy, Check, ArrowLeft, Trash2 } from "lucide-react";
+import {
+  Sparkles,
+  Bot,
+  User,
+  Copy,
+  Check,
+  ArrowLeft,
+  Trash2,
+} from "lucide-react";
 import { PromptInputCard } from "./PromptInputCard";
+import { marked } from "marked";
 
 export const ActiveChatView = ({
   chatTitle = "New Conversation",
@@ -88,14 +97,19 @@ export const ActiveChatView = ({
                   }`}
                 >
                   {/* Message Content */}
-                  <div className="whitespace-pre-wrap break-words">
-                    {msg.content}
-                  </div>
+                  <div
+                    className="whitespace-pre-wrap break-words"
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(msg.content || ""),
+                    }}
+                  />
 
                   {/* Copy Action on AI Message */}
                   {!isUser && (
                     <button
-                      onClick={() => copyToClipboard(msg.content, msg._id || index)}
+                      onClick={() =>
+                        copyToClipboard(msg.content, msg._id || index)
+                      }
                       className="opacity-0 group-hover:opacity-100 transition-opacity absolute -bottom-7 right-1 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-800 bg-white border border-neutral-200 px-2 py-0.5 rounded-md shadow-2xs"
                     >
                       {copiedId === (msg._id || index) ? (
@@ -133,9 +147,7 @@ export const ActiveChatView = ({
               <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" />
               <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce [animation-delay:0.2s]" />
               <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce [animation-delay:0.4s]" />
-              <span className="text-xs text-neutral-400 ml-1">
-                Thinking...
-              </span>
+              <span className="text-xs text-neutral-400 ml-1">Thinking...</span>
             </div>
           </div>
         )}
