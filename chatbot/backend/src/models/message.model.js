@@ -11,17 +11,22 @@ const messageSchema = new mongoose.Schema(
       type: String,
       enum: ["user", "ai", "system"],
     },
-
     content: {
       type: String,
       required: true,
     },
+    files: [
+      {
+        url: String,
+        fileName: String,
+      },
+    ],
   },
   {
     timestamps: true,
   },
 );
 
-const messageModel = mongoose.model("message", messageSchema)
+const messageModel = mongoose.model("message", messageSchema);
 
-export default messageModel
+export default messageModel;

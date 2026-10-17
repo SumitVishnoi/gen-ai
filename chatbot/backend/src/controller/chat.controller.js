@@ -2,24 +2,61 @@ import chatModel from "../models/chat.model.js";
 import messageModel from "../models/message.model.js";
 import { generateChatResponse } from "../services/ai.graph.js";
 import { generateChatTitle } from "../services/ai.models.js";
-import fs from "fs";
+import ImageKit, { toFile } from "@imagekit/nodejs";
+import { PDFParse } from "pdf-parse";
+
+const client = new ImageKit({
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+});
 
 //send message
 export const sendMessage = async (req, res) => {
-  try {
-    const userId = req.user._id;
+  const userId = req.user._id;
 
-    // Match the frontend's { chatId, message } format.
-    const {
-      message,
-      chatId: requestedChatId,
-      chat: legacyChatId,
-    } = req.body;
+  // Match the frontend's { chatId, message } format.
+  const { message, chatId: requestedChatId, chat: legacyChatId } = req.body;
 
-    console.log(req.file)
+  console.log(req.file);
 
-   const file = req.file.buffer.toString('base64'); 
-   console.log(file)
+  if (req.file) {
+    const uploadedFile = await client.files.upload({
+      file: await toFile(Buffer.from(req.file.buffer), "file"),
+      fileName: "fileName",
+    });
+
+    const queryId = requestedChatId || legacyChatId;
+
+    const updatedMessage = await messageModel.findByIdAndUpdate(
+      queryId,
+      {
+        $push: {
+          files: {
+            url: uploadedFile.url,
+            fileName: req.file.originalname,
+          },
+        },
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (updatedMessage?.files?.length > 0) {
+      // Files is an array; get the latest file.
+      const latestFile = updatedMessage.files[updatedMessage.files.length - 1];
+
+      // Parse the actual PDF buffer, not the URL string.
+      const parser = new PDFParse({
+        data: Buffer.from(req.file.buffer),
+      });
+
+      try {
+        const result = await parser.getText();
+        console.log(result.text);
+      } finally {
+        await parser.destroy();
+      }
+    }
 
     const existingChatId = requestedChatId || legacyChatId;
 
@@ -92,14 +129,6 @@ export const sendMessage = async (req, res) => {
       title,
       chat,
       route: result.route,
-    });
-  } catch (error) {
-    console.error("sendMessage error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
     });
   }
 };
