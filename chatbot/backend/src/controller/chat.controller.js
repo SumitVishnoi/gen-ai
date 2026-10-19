@@ -2,75 +2,52 @@ import chatModel from "../models/chat.model.js";
 import messageModel from "../models/message.model.js";
 import { generateChatResponse } from "../services/ai.graph.js";
 import { generateChatTitle } from "../services/ai.models.js";
-import ImageKit, { toFile } from "@imagekit/nodejs";
 import { PDFParse } from "pdf-parse";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { Pinecone } from "@pinecone-database/pinecone";
 
-const client = new ImageKit({
-  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+// Initialize these once at module level, not per request.
+const embeddings = new GoogleGenerativeAIEmbeddings({
+  model: "gemini-embedding-001",
+  outputDimensionality: 1024,
 });
 
-//send message
+const pinecone = new Pinecone({
+  apiKey: process.env.PINECONE_API_KEY,
+});
+
+const pineconeIndex = pinecone.index("chatbot");
+
+const textSplitter = new RecursiveCharacterTextSplitter({
+  chunkSize: 500,
+  chunkOverlap: 50,
+});
+
 export const sendMessage = async (req, res) => {
-  const userId = req.user._id;
+  let parser;
 
-  // Match the frontend's { chatId, message } format.
-  const { message, chatId: requestedChatId, chat: legacyChatId } = req.body;
-
-  console.log(req.file);
-
-  if (req.file) {
-    const uploadedFile = await client.files.upload({
-      file: await toFile(Buffer.from(req.file.buffer), "file"),
-      fileName: "fileName",
-    });
-
-    const queryId = requestedChatId || legacyChatId;
-
-    const updatedMessage = await messageModel.findByIdAndUpdate(
-      queryId,
-      {
-        $push: {
-          files: {
-            url: uploadedFile.url,
-            fileName: req.file.originalname,
-          },
-        },
-      },
-      {
-        new: true,
-      },
-    );
-
-    if (updatedMessage?.files?.length > 0) {
-      // Files is an array; get the latest file.
-      const latestFile = updatedMessage.files[updatedMessage.files.length - 1];
-
-      // Parse the actual PDF buffer, not the URL string.
-      const parser = new PDFParse({
-        data: Buffer.from(req.file.buffer),
-      });
-
-      try {
-        const result = await parser.getText();
-        console.log(result.text);
-      } finally {
-        await parser.destroy();
-      }
-    }
+  try {
+    const userId = req.user._id;
+    console.log(userId);
+    // Keep the existing frontend request format.
+    const { message, chatId: requestedChatId, chat: legacyChatId } = req.body;
 
     const existingChatId = requestedChatId || legacyChatId;
 
-    if (!message?.trim()) {
+    console.log("file fetched", req.file);
+
+    if (!message?.trim() && !req.file) {
       return res.status(400).json({
         success: false,
-        message: "Message content is required",
+        message: "Please provide a message or upload a PDF",
       });
     }
 
+    // Validate the chat before processing the uploaded document.
     let chat;
     let title = null;
 
-    // Find the existing chat and verify ownership, or create a new one.
     if (existingChatId) {
       chat = await chatModel.findOne({
         _id: existingChatId,
@@ -84,7 +61,9 @@ export const sendMessage = async (req, res) => {
         });
       }
     } else {
-      title = await generateChatTitle(message.trim());
+      const initialMessage =
+        message?.trim() || `Uploaded document: ${req.file.originalname}`;
+      title = await generateChatTitle(initialMessage);
 
       chat = await chatModel.create({
         user: userId,
@@ -92,31 +71,137 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    // Save the user's message.
-    await messageModel.create({
-      chat: chat._id,
-      content: message.trim(),
-      role: "user",
-    });
+    // Use the chat ID to isolate this document's vectors.
+    const documentId = req.file ? String(chat._id) : null;
 
-    // Fetch conversation history in chronological order.
+    // ------------------------------------------------
+    // 1. Parse PDF directly from the in-memory buffer
+    // ------------------------------------------------
+
+    console.log("Uploaded file:", req.file?.originalname);
+    console.log("MIME type:", req.file?.mimetype);
+    console.log("Buffer exists:", !!req.file?.buffer);
+    console.log("Buffer size:", req.file?.buffer?.length);
+
+    if (req.file) {
+      if (req.file.mimetype !== "application/pdf" || !req.file.buffer?.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Please upload a valid PDF file",
+        });
+      }
+
+      parser = new PDFParse({
+        data: Buffer.from(req.file.buffer),
+      });
+
+      const pdfResult = await parser.getText();
+      const extractedText = pdfResult.text?.trim();
+
+      console.log("file read", extractedText);
+
+      await parser.destroy();
+      parser = null;
+
+      if (!extractedText) {
+        return res.status(400).json({
+          success: false,
+          message: "No readable text found in the PDF",
+        });
+      }
+
+      // -----------------------------------------------
+      // 2. Split extracted text into smaller chunks
+      // -----------------------------------------------
+
+      const chunks = await textSplitter.splitText(extractedText);
+
+      console.log("chunking done", chunks);
+
+      if (!chunks.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Could not generate text chunks from PDF",
+        });
+      }
+
+      // -----------------------------------------------
+      // 3. Generate embeddings for every chunk
+      // -----------------------------------------------
+      const vectors = await embeddings.embedDocuments(chunks);
+
+      // -----------------------------------------------
+      // 4. Save vectors directly to Pinecone
+      // -----------------------------------------------
+      // IDs are unique per upload. Metadata lets RAG
+      // retrieve only chunks belonging to this chat.
+      const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      const records = chunks.map((chunk, i) => ({
+        id: `${documentId}-${uploadId}-${i}`,
+        values: vectors[i],
+        metadata: {
+          chatId: documentId,
+          userId: String(userId),
+          uploadId,
+          chunkIndex: i,
+          text: chunk,
+          fileName: req.file.originalname,
+        },
+      }));
+
+      console.log(records);
+
+      // Upsert in batches to avoid excessively large requests.
+      const batchSize = 100;
+
+      for (let i = 0; i < records.length; i += batchSize) {
+        const batch = records.slice(i, i + batchSize);
+
+        await pineconeIndex.upsert(batch);
+
+        console.log(`Upserted ${batch.length} vectors`);
+      }
+
+      console.log(`PDF processed: ${records.length} vectors saved to Pinecone`);
+    }
+
+    // -----------------------------------------------
+    // 5. Save only the message in MongoDB
+    // -----------------------------------------------
+    // No file URL, PDF buffer, or file object is stored.
+    if (message?.trim()) {
+      await messageModel.create({
+        chat: chat._id,
+        content: message.trim(),
+        role: "user",
+      });
+    }
+
+    // -----------------------------------------------
+    // 6. Load chat history
+    // -----------------------------------------------
     const chatMessages = await messageModel
       .find({ chat: chat._id })
       .sort({ createdAt: 1 });
 
-    // Pass plain messages in the format expected by LangGraph.
     const messages = chatMessages.map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
 
-    // Keep RAG disabled until you supply a verified document ID.
+    // -----------------------------------------------
+    // 7. Generate the response using your RAG pipeline
+    // -----------------------------------------------
     const result = await generateChatResponse({
       messages,
-      documentId: null,
+      documentId,
+      userId: String(userId),
     });
 
-    // LangGraph returns { response, route }, not a plain string.
+    // -----------------------------------------------
+    // 8. Save AI response in MongoDB
+    // -----------------------------------------------
     const aiMessage = await messageModel.create({
       chat: chat._id,
       content: result.response,
@@ -130,6 +215,18 @@ export const sendMessage = async (req, res) => {
       chat,
       route: result.route,
     });
+  } catch (error) {
+    console.error("sendMessage error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process message",
+    });
+  } finally {
+    // Ensure PDF parser resources are released on errors too.
+    if (parser) {
+      await parser.destroy().catch(() => {});
+    }
   }
 };
 
