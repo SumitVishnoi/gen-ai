@@ -1,16 +1,18 @@
 import axios from "axios";
 
 export const chatApiInstance = axios.create({
-  baseURL: "http://localhost:3000",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000",
   withCredentials: true,
+  timeout: 60000,
 });
 
-export const sendMessage = async ({ chatId, message }) => {
-  const response = await chatApiInstance.post("/api/chats/message", {
-    chatId,
-    chat: chatId,
-    message,
-  });
+export const sendMessage = async ({ chatId, message, file }) => {
+  const body = new FormData();
+  body.append("message", message);
+  if (chatId) body.append("chatId", chatId);
+  if (file) body.append("file", file);
+
+  const response = await chatApiInstance.post("/api/chats/message", body);
   return response.data;
 };
 

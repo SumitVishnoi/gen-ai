@@ -91,6 +91,7 @@ const Register = () => {
             <input
               type="password"
               required
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -124,14 +125,6 @@ const Register = () => {
               Sign in
             </Link>
           </p>
-          <div className="mt-3">
-            <Link
-              to="/"
-              className="text-xs text-neutral-400 hover:text-neutral-600"
-            >
-              ← Back to Dashboard
-            </Link>
-          </div>
         </div>
       </div>
     </div>

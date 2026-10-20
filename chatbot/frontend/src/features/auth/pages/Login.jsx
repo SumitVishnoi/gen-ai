@@ -33,7 +33,9 @@ const handleSubmit = async (e) => {
       setErrorMsg(result.message || "Invalid email or password");
     }
   } catch (error) {
-    setErrorMsg("Something went wrong. Please try again.");
+    setErrorMsg(
+      error.response?.data?.message || "Something went wrong. Please try again."
+    );
   } finally {
     setLoad(false);
   }
@@ -127,14 +129,6 @@ useEffect(()=> {
               Sign up
             </Link>
           </p>
-          <div className="mt-3">
-            <Link
-              to="/"
-              className="text-xs text-neutral-400 hover:text-neutral-600"
-            >
-              ← Continue as Guest to Dashboard
-            </Link>
-          </div>
         </div>
       </div>
     </div>

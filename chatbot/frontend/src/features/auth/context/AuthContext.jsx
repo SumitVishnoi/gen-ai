@@ -1,14 +1,12 @@
 
 import React, {
-  createContext,
   useState,
   useEffect,
   useCallback,
 } from "react";
 
 import { getCurrentUser } from "../service/auth.api";
-
-export const AuthContext = createContext(null);
+import { AuthContext } from "./context";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

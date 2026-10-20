@@ -1,7 +1,7 @@
 
 import { useContext } from "react";
 
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/context";
 
 import {
   loginUser,
@@ -13,6 +13,7 @@ const useAuth = () => {
   const {
     user,
     loading,
+    isAuthenticated,
     setUser,
     setIsAuthenticated,
     setError,
@@ -98,9 +99,11 @@ const useAuth = () => {
   return {
     user,
     loading,
+    isAuthenticated,
     handleRegister,
     handleLogin,
     handleLogout,
+    logout: handleLogout,
   };
 };
 

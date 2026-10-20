@@ -19,6 +19,7 @@ export const PromptInputCard = ({
   const [writingStyle, setWritingStyle] = useState("Writing Styles");
   const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
   const [attachments, setAttachments] = useState([]);
+  const [attachmentError, setAttachmentError] = useState("");
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -43,11 +44,14 @@ export const PromptInputCard = ({
     }
   }, [prompt]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e?.preventDefault();
-    if (!prompt.trim() || isLoading) return;
+    if ((!prompt.trim() && attachments.length === 0) || isLoading) return;
 
     let finalMessage = prompt.trim();
+    if (!finalMessage && attachments.length > 0) {
+      finalMessage = "Summarize this document.";
+    }
     if (writingStyle !== "Writing Styles") {
       finalMessage += `\n\n[Style Directive: Please format response in ${writingStyle} tone]`;
     }
@@ -55,9 +59,12 @@ export const PromptInputCard = ({
       finalMessage += `\n[Include verified citations and references where applicable]`;
     }
 
-    onSend?.(finalMessage);
+    const result = await onSend?.(finalMessage, attachments[0] || null);
+    if (result?.success === false) return;
+
     setPrompt("");
     setAttachments([]);
+    setAttachmentError("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -71,17 +78,27 @@ export const PromptInputCard = ({
   };
 
   const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      setAttachments((prev) => [
-        ...prev,
-        ...files.map((f) => ({ name: f.name, size: f.size })),
-      ]);
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      setAttachmentError("Please choose a PDF file.");
+      return;
     }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setAttachmentError("PDF must be 10 MB or smaller.");
+      return;
+    }
+
+    setAttachmentError("");
+    setAttachments([file]);
   };
 
   const removeAttachment = (index) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
+    setAttachmentError("");
   };
 
   const stylesList = [
@@ -110,6 +127,12 @@ export const PromptInputCard = ({
         </div>
 
         {/* Selected attachments chips */}
+        {attachmentError && (
+          <p className="mt-2 text-xs text-red-600" role="alert">
+            {attachmentError}
+          </p>
+        )}
+
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-neutral-100">
             {attachments.map((file, i) => (
@@ -135,7 +158,7 @@ export const PromptInputCard = ({
         <input
           ref={fileInputRef}
           type="file"
-          multiple
+          accept=".pdf,application/pdf"
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -223,9 +246,9 @@ export const PromptInputCard = ({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!prompt.trim() || isLoading}
+              disabled={(!prompt.trim() && attachments.length === 0) || isLoading}
               className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                prompt.trim() && !isLoading
+                (prompt.trim() || attachments.length > 0) && !isLoading
                   ? "bg-[#121212] hover:bg-neutral-800 text-white shadow-xs active:scale-95"
                   : "bg-neutral-200 text-neutral-400 cursor-not-allowed"
               }`}

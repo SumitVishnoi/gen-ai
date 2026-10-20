@@ -19,7 +19,9 @@ const Dashboard = () => {
     activeChatTitle,
     messages,
     loadingChats,
+    loadingMessages,
     sendingMessage,
+    error,
     handleSelectChat,
     handleNewThread,
     handleSendMessage,
@@ -28,15 +30,19 @@ const Dashboard = () => {
 
   const [activeTab, setActiveTab] = useState("home");
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [currentModel, setCurrentModel] = useState("ChatGPT 4o");
+  const [currentModel] = useState("Gemini 3.5 Flash Lite");
   const [initialPrompt, setInitialPrompt] = useState("");
 
-  const handleSendPrompt = (text) => {
-    handleSendMessage({
+  const handleSendPrompt = async (text, file) => {
+    const result = await handleSendMessage({
       chatId: activeChatId,
       message: text,
+      file,
     });
-    setInitialPrompt("");
+    if (result?.success) {
+      setInitialPrompt("");
+    }
+    return result;
   };
 
   const handleSelectStarterCard = (promptText) => {
@@ -86,7 +92,6 @@ const Dashboard = () => {
         {/* Top Minimalist Header */}
         <TopNavbar
           currentModel={currentModel}
-          onModelChange={setCurrentModel}
           onNewThread={handleNewThread}
           onSearchClick={() => setHistoryOpen(true)}
         />
@@ -96,7 +101,8 @@ const Dashboard = () => {
           <ActiveChatView
             chatTitle={activeChatTitle}
             messages={messages}
-            isLoading={sendingMessage}
+            isLoading={sendingMessage || loadingMessages}
+            error={error}
             onSend={handleSendPrompt}
             onBackToHome={handleNewThread}
             onDeleteChat={handleDeleteChat}
@@ -105,6 +111,14 @@ const Dashboard = () => {
         ) : (
           <main className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-12 py-6 md:py-10 flex flex-col justify-between">
             <div className="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-center">
+              {error && (
+                <div
+                  className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              )}
               {/* Center Hero with Glowing Purple Orb & Greeting */}
               <HeroSection userName={user?.name || "Jason"} />
 

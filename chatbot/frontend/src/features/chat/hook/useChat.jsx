@@ -21,10 +21,9 @@ export const useChat = () => {
         setChats(data.chats);
         return data.chats;
       }
-      return [];
+      throw new Error(data?.message || "Unable to load chat history");
     } catch (err) {
-      console.warn("Failed to load chats from backend:", err?.message);
-      // Graceful degradation
+      setError(err.response?.data?.message || err.message || "Unable to load chat history");
       return [];
     } finally {
       setLoadingChats(false);
@@ -42,23 +41,20 @@ export const useChat = () => {
     try {
       setLoadingMessages(true);
       setActiveChatId(chatId);
+      setMessages([]);
       setError(null);
 
       const found = chats.find((c) => c._id === chatId);
-      if (found) {
-        setActiveChatTitle(found.title || "Conversation");
-      }
+      setActiveChatTitle(found?.title || "Conversation");
 
       const data = await getMessages(chatId);
       if (data?.success && Array.isArray(data?.messages)) {
         setMessages(data.messages);
       } else {
-        setMessages([]);
+        throw new Error(data?.message || "Unable to load messages");
       }
     } catch (err) {
-      console.warn("Failed to load messages for chat:", chatId, err?.message);
-      setError(err?.message || "Failed to load messages");
-      setMessages([]);
+      setError(err.response?.data?.message || err.message || "Failed to load messages");
     } finally {
       setLoadingMessages(false);
     }
@@ -73,14 +69,16 @@ export const useChat = () => {
   }, []);
 
   // Send message
-  const handleSendMessage = useCallback(async ({ chatId, message }) => {
-    if (!message || !message.trim()) return null;
+  const handleSendMessage = useCallback(async ({ chatId, message, file }) => {
+    if ((!message || !message.trim()) && !file) return null;
     const targetChatId = chatId || activeChatId;
+    const content = message?.trim() || "Summarize this document.";
+    const pendingId = `temp-${Date.now()}`;
 
     const tempUserMsg = {
-      _id: "temp-" + Date.now(),
+      _id: pendingId,
       role: "user",
-      content: message.trim(),
+      content,
       createdAt: new Date().toISOString(),
     };
 
@@ -91,11 +89,13 @@ export const useChat = () => {
     try {
       const data = await sendMessage({
         chatId: targetChatId,
-        message: message.trim(),
+        message: content,
+        file,
       });
 
       if (data?.success) {
         const aiMsg = data.message;
+        const savedUserMessage = data.userMessage;
         const newChat = data.chat;
 
         if (newChat && (!targetChatId || targetChatId !== newChat._id)) {
@@ -104,9 +104,11 @@ export const useChat = () => {
           setChats((prev) => [newChat, ...prev.filter((c) => c._id !== newChat._id)]);
         }
 
-        if (aiMsg) {
-          setMessages((prev) => [...prev, aiMsg]);
-        }
+        setMessages((prev) => [
+          ...prev.filter((msg) => msg._id !== pendingId),
+          ...(savedUserMessage ? [savedUserMessage] : [tempUserMsg]),
+          ...(aiMsg ? [aiMsg] : []),
+        ]);
 
         // Refresh chats list to keep sidebar updated
         handleGetChats();
@@ -115,36 +117,11 @@ export const useChat = () => {
         throw new Error(data?.message || "Server did not return a successful response");
       }
     } catch (err) {
-      console.warn("Backend sendMessage error, providing fallback simulation:", err?.message);
-      const isNetworkOrAuthError = err.response?.status === 401 || err.code === "ERR_NETWORK" || !err.response;
-
-      // Provide a helpful intelligent simulated response if backend is offline or unauthenticated
-      const fallbackAiMsg = {
-        _id: "sim-" + Date.now(),
-        role: "ai",
-        content: isNetworkOrAuthError
-          ? `I've received your query: "${message.trim()}". \n\n*(Note: Running in preview mode. Connect and start the backend server at localhost:3000 to enable real-time Gemini AI persistence and database synchronization.)*`
-          : `I encountered an issue processing your request: ${err.response?.data?.message || err.message}`,
-        createdAt: new Date().toISOString(),
-      };
-
-      setMessages((prev) => [...prev, fallbackAiMsg]);
-
-      // If this was a new thread, create a local simulated chat so it shows up in history
-      if (!targetChatId) {
-        const simulatedId = "local-" + Date.now();
-        const simulatedTitle = message.slice(0, 32) + (message.length > 32 ? "..." : "");
-        const localChat = {
-          _id: simulatedId,
-          title: simulatedTitle,
-          createdAt: new Date().toISOString(),
-        };
-        setActiveChatId(simulatedId);
-        setActiveChatTitle(simulatedTitle);
-        setChats((prev) => [localChat, ...prev]);
-      }
-
-      return { success: false, error: err?.message };
+      setMessages((prev) => prev.filter((msg) => msg._id !== pendingId));
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to send message";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setSendingMessage(false);
     }
@@ -153,20 +130,20 @@ export const useChat = () => {
   // Delete chat
   const handleDeleteChat = useCallback(async (chatId) => {
     try {
-      await deleteChat(chatId);
+      const data = await deleteChat(chatId);
+      if (!data?.success) {
+        throw new Error(data?.message || "Unable to delete chat");
+      }
       setChats((prev) => prev.filter((c) => c._id !== chatId));
       if (activeChatId === chatId) {
         handleNewThread();
       }
       return { success: true };
     } catch (err) {
-      console.warn("Failed to delete chat:", err?.message);
-      // Also delete from local state
-      setChats((prev) => prev.filter((c) => c._id !== chatId));
-      if (activeChatId === chatId) {
-        handleNewThread();
-      }
-      return { success: false, error: err?.message };
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to delete chat";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     }
   }, [activeChatId, handleNewThread]);
 

@@ -4,7 +4,14 @@ import userModel from "../models/user.model.js";
 //REGISTER
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const body = req.body || {};
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const email =
+      typeof body.email === "string"
+        ? body.email.trim().toLowerCase()
+        : "";
+    const password =
+      typeof body.password === "string" ? body.password : "";
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -13,12 +20,26 @@ export const register = async (req, res) => {
       });
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters",
+      });
+    }
+
     const isExist = await userModel.findOne({ email });
 
     if (isExist) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        message: "user already exist",
+        message: "An account with this email already exists",
       });
     }
 
@@ -32,9 +53,9 @@ export const register = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.status(201).json({
@@ -46,10 +67,17 @@ export const register = async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists",
+      });
+    }
+
+    console.error("register error:", error);
     return res.status(500).json({
       success: false,
-      message: "register error",
-      error: error.message,
+      message: "Unable to register right now",
     });
   }
 };
@@ -57,7 +85,13 @@ export const register = async (req, res) => {
 //LOGIN
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const body = req.body || {};
+    const email =
+      typeof body.email === "string"
+        ? body.email.trim().toLowerCase()
+        : "";
+    const password =
+      typeof body.password === "string" ? body.password : "";
 
     if (!email || !password) {
       return res.status(400).json({
@@ -88,9 +122,9 @@ export const login = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.status(200).json({
@@ -102,10 +136,10 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("login error:", error);
     return res.status(500).json({
       success: false,
-      message: "login error",
-      error: error.message,
+      message: "Unable to log in right now",
     });
   }
 };
@@ -115,8 +149,8 @@ export const logout = async (req, res) => {
   try {
     res.clearCookie("token", {
       httpOnly: true,
-      secure: false,
-      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
 
     return res.status(200).json({
@@ -124,10 +158,10 @@ export const logout = async (req, res) => {
       message: "Logged out",
     });
   } catch (error) {
+    console.error("logout error:", error);
     return res.status(500).json({
       success: false,
-      message: "logout error",
-      error: error.message,
+      message: "Unable to log out right now",
     });
   }
 };
@@ -138,7 +172,7 @@ export const getMe = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const user = await userModel.findById(userId);
+    const user = await userModel.findById(userId).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -153,11 +187,10 @@ export const getMe = async (req, res) => {
       user,
     });
   } catch (error) {
+    console.error("get current user error:", error);
     return res.status(500).json({
       success: false,
-      message: "error in fetch current user",
-      error: error.message,
+      message: "Unable to fetch the current user",
     });
   }
 };
-

@@ -19,6 +19,7 @@ export const ActiveChatView = ({
   onBackToHome,
   onDeleteChat,
   chatId,
+  error,
 }) => {
   const messagesEndRef = useRef(null);
   const [copiedId, setCopiedId] = React.useState(null);
@@ -54,6 +55,17 @@ export const ActiveChatView = ({
             {chatTitle || "Conversation"}
           </h2>
         </div>
+
+        {error && (
+          <div
+            className="mx-auto mt-4 w-full max-w-4xl px-4 sm:px-6 md:px-12"
+            role="alert"
+          >
+            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </p>
+          </div>
+        )}
 
         {chatId && onDeleteChat && (
           <button

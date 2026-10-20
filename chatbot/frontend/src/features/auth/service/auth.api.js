@@ -1,8 +1,9 @@
 import axios from "axios";
 
 export const authApiInstance = axios.create({
-  baseURL: "http://localhost:3000",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000",
   withCredentials: true,
+  timeout: 15000,
 });
 
 export const loginUser = async ({ email, password }) => {
@@ -16,7 +17,7 @@ export const registerUser = async ({ name, email, password }) => {
 };
 
 export const logoutUser = async () => {
-  const response = await authApiInstance.get("/api/auth/logout");
+  const response = await authApiInstance.post("/api/auth/logout");
   return response.data;
 };
 

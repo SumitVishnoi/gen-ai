@@ -5,7 +5,7 @@ import { authenticateUser } from "../middlewares/user.middleware.js"
 const router = express.Router()
 
 /**
- * @route POST /api/auth/regiser
+ * @route POST /api/auth/register
  * @description To create a new user
  */
 router.post("/register", register)
@@ -20,7 +20,7 @@ router.post("/login", login)
  * @route POST /api/auth/logout
  * @description to remove the current loggedin user
  */
-router.get("/logout", authenticateUser, logout)
+router.post("/logout", logout)
 
 /**
  * @route GET /api/auth/me

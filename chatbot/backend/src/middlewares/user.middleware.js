@@ -3,31 +3,42 @@ import userModel from "../models/user.model.js";
 
 
 export const authenticateUser = async(req, res, next) => {
+    const token = req.cookies?.token;
 
-    try {
-        const token = req.cookies.token
-
-        if(!token) {
-            return res.status(401).json({
-                success: false,
-                message: "Not authorized, no token provided"
-            })
-        }
-
-        const decoded = verifyToken(token);
-
-        const user = await userModel.findById(decoded.userId).select("-password")
-
-        req.user = user;
-
-        next()
-
-    } catch (error) {
-        return res.status(500).json({
+    if (!token) {
+        return res.status(401).json({
             success: false,
-            message: "Tokenization error",
-            error: error.message
+            message: "Not authorized, no token provided"
         })
     }
 
+    let decoded;
+    try {
+        decoded = verifyToken(token);
+    } catch {
+        return res.status(401).json({
+            success: false,
+            message: "Not authorized, invalid or expired token"
+        })
+    }
+
+    try {
+        const user = await userModel.findById(decoded.userId).select("-password");
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "Not authorized, user no longer exists"
+            })
+        }
+
+        req.user = user;
+        next();
+    } catch (error) {
+        console.error("Authentication lookup failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to authenticate user"
+        })
+    }
 }

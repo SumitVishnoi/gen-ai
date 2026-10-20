@@ -6,6 +6,7 @@ import { PDFParse } from "pdf-parse";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { Pinecone } from "@pinecone-database/pinecone";
+import mongoose from "mongoose";
 
 // Initialize these once at module level, not per request.
 const embeddings = new GoogleGenerativeAIEmbeddings({
@@ -29,28 +30,81 @@ export const sendMessage = async (req, res) => {
 
   try {
     const userId = req.user._id;
-    console.log(userId);
-    // Keep the existing frontend request format.
-    const { message, chatId: requestedChatId, chat: legacyChatId } = req.body;
+    const body = req.body || {};
+    const message =
+      typeof body.message === "string" ? body.message.trim() : "";
+    const requestedChatId = body.chatId || body.chat;
+    const prompt = message || (req.file ? "Summarize this document." : "");
 
-    const existingChatId = requestedChatId || legacyChatId;
-
-    console.log("file fetched", req.file);
-
-    if (!message?.trim() && !req.file) {
+    if (!prompt) {
       return res.status(400).json({
         success: false,
         message: "Please provide a message or upload a PDF",
       });
     }
 
+    if (requestedChatId && !mongoose.isValidObjectId(requestedChatId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid chat ID",
+      });
+    }
+
+    if (
+      req.file &&
+      (req.file.mimetype !== "application/pdf" || !req.file.buffer?.length)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload a valid PDF file",
+      });
+    }
+
+    let chunks = [];
+    if (req.file) {
+      parser = new PDFParse({
+        data: Buffer.from(req.file.buffer),
+      });
+
+      let pdfResult;
+      try {
+        pdfResult = await parser.getText();
+      } catch (error) {
+        console.error("PDF parsing error:", error);
+        return res.status(400).json({
+          success: false,
+          message: "Unable to read the uploaded PDF",
+        });
+      } finally {
+        await parser.destroy();
+        parser = null;
+      }
+
+      const extractedText = pdfResult.text?.trim();
+
+      if (!extractedText) {
+        return res.status(400).json({
+          success: false,
+          message: "No readable text found in the PDF",
+        });
+      }
+
+      chunks = await textSplitter.splitText(extractedText);
+      if (!chunks.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Could not generate text chunks from PDF",
+        });
+      }
+    }
+
     // Validate the chat before processing the uploaded document.
     let chat;
     let title = null;
 
-    if (existingChatId) {
+    if (requestedChatId) {
       chat = await chatModel.findOne({
-        _id: existingChatId,
+        _id: requestedChatId,
         user: userId,
       });
 
@@ -61,9 +115,9 @@ export const sendMessage = async (req, res) => {
         });
       }
     } else {
-      const initialMessage =
-        message?.trim() || `Uploaded document: ${req.file.originalname}`;
-      title = await generateChatTitle(initialMessage);
+      title = await generateChatTitle(
+        req.file && !message ? `Uploaded document: ${req.file.originalname}` : prompt,
+      );
 
       chat = await chatModel.create({
         user: userId,
@@ -71,70 +125,13 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    // Use the chat ID to isolate this document's vectors.
-    const documentId = req.file ? String(chat._id) : null;
-
-    // ------------------------------------------------
-    // 1. Parse PDF directly from the in-memory buffer
-    // ------------------------------------------------
-
-    console.log("Uploaded file:", req.file?.originalname);
-    console.log("MIME type:", req.file?.mimetype);
-    console.log("Buffer exists:", !!req.file?.buffer);
-    console.log("Buffer size:", req.file?.buffer?.length);
+    // Keep this chat's uploaded-document context available for follow-up turns.
+    const documentId =
+      chat.hasDocument || req.file ? String(chat._id) : null;
 
     if (req.file) {
-      if (req.file.mimetype !== "application/pdf" || !req.file.buffer?.length) {
-        return res.status(400).json({
-          success: false,
-          message: "Please upload a valid PDF file",
-        });
-      }
-
-      parser = new PDFParse({
-        data: Buffer.from(req.file.buffer),
-      });
-
-      const pdfResult = await parser.getText();
-      const extractedText = pdfResult.text?.trim();
-
-      console.log("file read", extractedText);
-
-      await parser.destroy();
-      parser = null;
-
-      if (!extractedText) {
-        return res.status(400).json({
-          success: false,
-          message: "No readable text found in the PDF",
-        });
-      }
-
-      // -----------------------------------------------
-      // 2. Split extracted text into smaller chunks
-      // -----------------------------------------------
-
-      const chunks = await textSplitter.splitText(extractedText);
-
-      console.log("chunking done", chunks);
-
-      if (!chunks.length) {
-        return res.status(400).json({
-          success: false,
-          message: "Could not generate text chunks from PDF",
-        });
-      }
-
-      // -----------------------------------------------
-      // 3. Generate embeddings for every chunk
-      // -----------------------------------------------
       const vectors = await embeddings.embedDocuments(chunks);
 
-      // -----------------------------------------------
-      // 4. Save vectors directly to Pinecone
-      // -----------------------------------------------
-      // IDs are unique per upload. Metadata lets RAG
-      // retrieve only chunks belonging to this chat.
       const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       const records = chunks.map((chunk, i) => ({
@@ -150,8 +147,6 @@ export const sendMessage = async (req, res) => {
         },
       }));
 
-      console.log(records);
-
       // Upsert in batches to avoid excessively large requests.
       const batchSize = 100;
 
@@ -159,58 +154,50 @@ export const sendMessage = async (req, res) => {
         const batch = records.slice(i, i + batchSize);
 
         await pineconeIndex.upsert(batch);
-
-        console.log(`Upserted ${batch.length} vectors`);
       }
 
-      console.log(`PDF processed: ${records.length} vectors saved to Pinecone`);
+      if (!chat.hasDocument) {
+        chat.hasDocument = true;
+        await chat.save();
+      }
     }
 
-    // -----------------------------------------------
-    // 5. Save only the message in MongoDB
-    // -----------------------------------------------
-    // No file URL, PDF buffer, or file object is stored.
-    if (message?.trim()) {
-      await messageModel.create({
-        chat: chat._id,
-        content: message.trim(),
-        role: "user",
-      });
-    }
-
-    // -----------------------------------------------
-    // 6. Load chat history
-    // -----------------------------------------------
     const chatMessages = await messageModel
       .find({ chat: chat._id })
       .sort({ createdAt: 1 });
 
-    const messages = chatMessages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    const messages = [
+      ...chatMessages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      { role: "user", content: prompt },
+    ];
 
-    // -----------------------------------------------
-    // 7. Generate the response using your RAG pipeline
-    // -----------------------------------------------
     const result = await generateChatResponse({
       messages,
       documentId,
       userId: String(userId),
     });
 
-    // -----------------------------------------------
-    // 8. Save AI response in MongoDB
-    // -----------------------------------------------
+    const userMessage = await messageModel.create({
+      chat: chat._id,
+      content: prompt,
+      role: "user",
+    });
+
     const aiMessage = await messageModel.create({
       chat: chat._id,
       content: result.response,
       role: "ai",
     });
+    chat.updatedAt = new Date();
+    await chat.save();
 
     return res.status(201).json({
       success: true,
       message: aiMessage,
+      userMessage,
       title,
       chat,
       route: result.route,
@@ -233,12 +220,9 @@ export const sendMessage = async (req, res) => {
 //get chats
 export const getChats = async (req, res) => {
   try {
-    console.log(req.user._id);
     const user = req.user._id;
 
-    const chats = await chatModel.find({
-      user,
-    });
+    const chats = await chatModel.find({ user }).sort({ updatedAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -246,9 +230,10 @@ export const getChats = async (req, res) => {
       chats,
     });
   } catch (error) {
+    console.error("getChats error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Unable to fetch chats",
     });
   }
 };
@@ -258,6 +243,13 @@ export const getMessages = async (req, res) => {
   try {
     const userId = req.user._id;
     const { chatId } = req.params;
+
+    if (!mongoose.isValidObjectId(chatId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid chat ID",
+      });
+    }
 
     const chat = await chatModel.findOne({
       _id: chatId,
@@ -271,9 +263,9 @@ export const getMessages = async (req, res) => {
       });
     }
 
-    const messages = await messageModel.find({
-      chat: chatId,
-    });
+    const messages = await messageModel
+      .find({ chat: chatId })
+      .sort({ createdAt: 1 });
 
     return res.status(200).json({
       success: true,
@@ -281,9 +273,10 @@ export const getMessages = async (req, res) => {
       messages,
     });
   } catch (error) {
+    console.error("getMessages error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Unable to fetch messages",
     });
   }
 };
@@ -293,7 +286,14 @@ export const deleteChat = async (req, res) => {
   try {
     const { chatId } = req.params;
 
-    await chatModel.findOneAndDelete({
+    if (!mongoose.isValidObjectId(chatId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid chat ID",
+      });
+    }
+
+    const chat = await chatModel.findOne({
       _id: chatId,
       user: req.user._id,
     });
@@ -301,22 +301,22 @@ export const deleteChat = async (req, res) => {
     if (!chat) {
       return res.status(404).json({
         success: false,
-        message: "chat not found",
+        message: "Chat not found",
       });
     }
 
-    await messageModel.deleteMany({
-      chat: chatId,
-    });
+    await messageModel.deleteMany({ chat: chat._id });
+    await chatModel.deleteOne({ _id: chat._id, user: req.user._id });
 
     return res.status(200).json({
       success: true,
       message: "Chat deleted successfully",
     });
   } catch (error) {
+    console.error("deleteChat error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Unable to delete chat",
     });
   }
 };
