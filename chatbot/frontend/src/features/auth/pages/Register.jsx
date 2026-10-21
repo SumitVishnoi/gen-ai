@@ -32,7 +32,7 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#FBFBFA] flex flex-col justify-center items-center px-4 py-12 select-none">
+    <div className="min-h-screen w-full bg-[#FBFBFA] flex flex-col justify-center items-center px-4 py-12 select-none">
       {/* Top Branding */}
       <div className="flex flex-col items-center mb-8 text-center">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-violet-600 to-fuchsia-600 flex items-center justify-center text-white shadow-md mb-4">
@@ -47,7 +47,7 @@ const Register = () => {
       </div>
 
       {/* Register Card */}
-      <div className="w-full max-w-md bg-white rounded-3xl border border-[#EAEAE7] shadow-[0_8px_30px_-6px_rgba(0,0,0,0.05)] p-8">
+      <div className="w-full max-w-md bg-white rounded-3xl border border-[#EAEAE7] shadow-[0_8px_30px_-6px_rgba(0,0,0,0.05)] p-5 sm:p-8">
         {errorMsg && (
           <div className="mb-5 p-3 rounded-xl bg-red-50 border border-red-200/80 text-red-700 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />

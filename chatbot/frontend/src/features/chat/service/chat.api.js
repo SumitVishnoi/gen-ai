@@ -6,9 +6,15 @@ export const chatApiInstance = axios.create({
   timeout: 60000,
 });
 
-export const sendMessage = async ({ chatId, message, file }) => {
+export const sendMessage = async ({
+  chatId,
+  message,
+  file,
+  includeCitations = true,
+}) => {
   const body = new FormData();
   body.append("message", message);
+  body.append("includeCitations", String(includeCitations));
   if (chatId) body.append("chatId", chatId);
   if (file) body.append("file", file);
 

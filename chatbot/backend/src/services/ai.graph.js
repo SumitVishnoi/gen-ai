@@ -91,6 +91,11 @@ const ChatState = Annotation.Root({
     default: () => null,
   }),
 
+  includeCitations: Annotation({
+    reducer: (_, next) => next,
+    default: () => true,
+  }),
+
   route: Annotation({
     reducer: (_, next) => next,
     default: () => "direct",
@@ -344,6 +349,9 @@ Follow these rules carefully:
 6. When web search results are provided, use them for current information.
 7. Do not invent facts, search results, citations, or document contents.
 8. If the available context does not answer the question, be transparent.
+${state.includeCitations
+    ? "9. When using provided web results or other sources, include accurate citations where applicable."
+    : ""}
 
 Current route: ${state.route}
 
@@ -411,6 +419,7 @@ export async function generateChatResponse({
   messages,
   documentId = null,
   userId = null,
+  includeCitations = true,
 }) {
   if (!Array.isArray(messages) || messages.length === 0) {
     throw new Error("At least one chat message is required.");
@@ -456,6 +465,7 @@ export async function generateChatResponse({
     userMessage: lastUserMessage.content,
     documentId: documentId ? String(documentId) : null,
     userId: userId ? String(userId) : null,
+    includeCitations: Boolean(includeCitations),
   });
 
   const finalMessage = result.messages[result.messages.length - 1];

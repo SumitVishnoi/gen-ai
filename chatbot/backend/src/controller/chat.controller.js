@@ -33,6 +33,7 @@ export const sendMessage = async (req, res) => {
     const body = req.body || {};
     const message =
       typeof body.message === "string" ? body.message.trim() : "";
+    const includeCitations = body.includeCitations !== "false";
     const requestedChatId = body.chatId || body.chat;
     const prompt = message || (req.file ? "Summarize this document." : "");
 
@@ -178,6 +179,7 @@ export const sendMessage = async (req, res) => {
       messages,
       documentId,
       userId: String(userId),
+      includeCitations,
     });
 
     const userMessage = await messageModel.create({

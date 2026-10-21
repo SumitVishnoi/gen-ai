@@ -55,11 +55,12 @@ export const PromptInputCard = ({
     if (writingStyle !== "Writing Styles") {
       finalMessage += `\n\n[Style Directive: Please format response in ${writingStyle} tone]`;
     }
-    if (citationEnabled) {
-      finalMessage += `\n[Include verified citations and references where applicable]`;
-    }
 
-    const result = await onSend?.(finalMessage, attachments[0] || null);
+    const result = await onSend?.(
+      finalMessage,
+      attachments[0] || null,
+      { includeCitations: citationEnabled }
+    );
     if (result?.success === false) return;
 
     setPrompt("");
@@ -111,7 +112,7 @@ export const PromptInputCard = ({
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      <div className="bg-white rounded-2xl md:rounded-[22px] border border-[#E5E5E2] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-200 focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-500/10 p-4 md:p-5">
+      <div className="bg-white rounded-2xl md:rounded-[22px] border border-[#E5E5E2] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-200 focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-500/10 p-3 sm:p-4 md:p-5">
         {/* Top input row with sparkle icon */}
         <div className="flex items-start gap-3">
           <Sparkles className="w-4 h-4 text-neutral-400 mt-1 shrink-0 stroke-[2]" />
@@ -164,7 +165,7 @@ export const PromptInputCard = ({
         />
 
         {/* Bottom toolbar */}
-        <div className="flex items-center justify-between gap-3 mt-4 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-1">
           {/* Left tools: Attach & Writing Styles */}
           <div className="flex items-center gap-2">
             {/* Attach button */}
@@ -216,13 +217,16 @@ export const PromptInputCard = ({
           </div>
 
           {/* Right tools: Citation toggle & Send button */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between sm:justify-end gap-3">
             {/* Citation toggle */}
             <button
               type="button"
               onClick={() => setCitationEnabled(!citationEnabled)}
               className="flex items-center gap-2 group cursor-pointer"
               title="Toggle Web & Academic Citations"
+              role="switch"
+              aria-checked={citationEnabled}
+              aria-label="Include citations"
             >
               {/* Toggle switch track */}
               <div

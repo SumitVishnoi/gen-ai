@@ -21,23 +21,23 @@ export const TopNavbar = ({
   };
 
   return (
-    <header className="h-16 w-full flex items-center justify-between px-6 sm:px-10 bg-transparent select-none z-20">
+    <header className="h-16 w-full shrink-0 flex items-center justify-between gap-2 px-3 sm:px-6 lg:px-10 bg-transparent select-none z-20">
       {/* Left: Model Selector Pill */}
       <div className="relative">
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-[#EAEAE7] text-sm font-medium text-[#1c1b1b] shadow-xs">
+        <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#EAEAE7] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1c1b1b] shadow-xs sm:px-3.5 sm:text-sm">
           <Sparkles className="w-4 h-4 text-violet-600 stroke-[2]" />
-          <span>{currentModel}</span>
+          <span className="truncate">{currentModel}</span>
         </div>
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-4">
         {/* Search Thread */}
         <div className="relative">
           <button
             type="button"
             onClick={onSearchClick}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/80 border border-[#EAEAE7] hover:border-neutral-300 text-xs sm:text-sm text-neutral-600 shadow-xs cursor-pointer hover:bg-white transition-all"
+            className="flex items-center gap-2 rounded-xl border border-[#EAEAE7] bg-white/80 px-2.5 py-1.5 text-xs text-neutral-600 shadow-xs transition-all hover:border-neutral-300 hover:bg-white sm:px-3.5 sm:text-sm"
           >
             <Search className="w-3.5 h-3.5 text-neutral-400" />
             <span className="hidden sm:inline">Search thread</span>
@@ -48,7 +48,7 @@ export const TopNavbar = ({
         {/* Invite Button */}
         <button
           onClick={() => setInviteModalOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-[#EAEAE7] hover:border-neutral-300 text-xs sm:text-sm font-medium text-neutral-700 shadow-xs hover:bg-neutral-50 transition-all cursor-pointer"
+          className="hidden items-center gap-1.5 rounded-xl border border-[#EAEAE7] bg-white px-3.5 py-1.5 text-xs font-medium text-neutral-700 shadow-xs transition-all hover:border-neutral-300 hover:bg-neutral-50 sm:flex sm:text-sm"
         >
           <UserPlus className="w-3.5 h-3.5 text-neutral-500" />
           <span>Invite</span>
@@ -57,10 +57,12 @@ export const TopNavbar = ({
         {/* New Thread CTA Button */}
         <button
           onClick={onNewThread}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#121212] hover:bg-neutral-800 text-white text-xs sm:text-sm font-medium shadow-sm transition-all duration-150 active:scale-98 cursor-pointer"
+          className="flex items-center gap-1.5 rounded-full bg-[#121212] px-2.5 py-2 text-xs font-medium text-white shadow-sm transition-all duration-150 hover:bg-neutral-800 active:scale-98 cursor-pointer sm:px-4 sm:text-sm"
+          title="New thread"
+          aria-label="New thread"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>New Thread</span>
+          <span className="hidden sm:inline">New Thread</span>
         </button>
       </div>
 

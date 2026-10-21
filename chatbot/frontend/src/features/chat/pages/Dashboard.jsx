@@ -33,11 +33,12 @@ const Dashboard = () => {
   const [currentModel] = useState("Gemini 3.5 Flash Lite");
   const [initialPrompt, setInitialPrompt] = useState("");
 
-  const handleSendPrompt = async (text, file) => {
+  const handleSendPrompt = async (text, file, options = {}) => {
     const result = await handleSendMessage({
       chatId: activeChatId,
       message: text,
       file,
+      includeCitations: options.includeCitations,
     });
     if (result?.success) {
       setInitialPrompt("");
@@ -60,7 +61,7 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#FBFBFA] font-sans antialiased text-[#191919]">
+    <div className="flex h-dvh w-full overflow-hidden bg-[#FBFBFA] font-sans antialiased text-[#191919]">
       {/* 1. Sleek Left Icon Sidebar */}
       <Sidebar
         activeTab={activeTab}
@@ -88,7 +89,7 @@ const Dashboard = () => {
       />
 
       {/* 3. Main Workspace Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex min-w-0 min-h-0 flex-col h-[calc(100dvh-3.5rem)] md:h-dvh overflow-hidden">
         {/* Top Minimalist Header */}
         <TopNavbar
           currentModel={currentModel}
@@ -109,7 +110,7 @@ const Dashboard = () => {
             chatId={activeChatId}
           />
         ) : (
-          <main className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-12 py-6 md:py-10 flex flex-col justify-between">
+          <main className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 lg:px-12 py-5 sm:py-6 md:py-10 flex flex-col justify-between">
             <div className="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-center">
               {error && (
                 <div

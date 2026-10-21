@@ -69,7 +69,12 @@ export const useChat = () => {
   }, []);
 
   // Send message
-  const handleSendMessage = useCallback(async ({ chatId, message, file }) => {
+  const handleSendMessage = useCallback(async ({
+    chatId,
+    message,
+    file,
+    includeCitations = true,
+  }) => {
     if ((!message || !message.trim()) && !file) return null;
     const targetChatId = chatId || activeChatId;
     const content = message?.trim() || "Summarize this document.";
@@ -91,6 +96,7 @@ export const useChat = () => {
         chatId: targetChatId,
         message: content,
         file,
+        includeCitations,
       });
 
       if (data?.success) {

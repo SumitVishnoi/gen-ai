@@ -30,7 +30,7 @@ export const ChatHistoryDrawer = ({
       />
 
       {/* Drawer content */}
-      <div className="relative ml-16 md:ml-[72px] w-80 max-w-[85vw] h-full bg-white border-r border-[#EAEAE7] shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
+      <div className="relative ml-0 md:ml-[72px] w-80 max-w-[88vw] h-full bg-white border-r border-[#EAEAE7] shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
         {/* Drawer Header */}
         <div className="p-4 border-b border-[#EAEAE7] flex items-center justify-between">
           <div className="flex items-center gap-2">

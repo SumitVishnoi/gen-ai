@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import {
   Sparkles,
-  Bot,
   User,
   Copy,
   Check,
@@ -10,6 +9,20 @@ import {
 } from "lucide-react";
 import { PromptInputCard } from "./PromptInputCard";
 import { marked } from "marked";
+
+const formatMessageTime = (createdAt) => {
+  if (!createdAt) return null;
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return {
+    dateTime: date.toISOString(),
+    label: new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(date),
+  };
+};
 
 export const ActiveChatView = ({
   chatTitle = "New Conversation",
@@ -41,31 +54,20 @@ export const ActiveChatView = ({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#FBFBFA]">
       {/* Conversation Header */}
-      <div className="h-14 border-b border-[#EAEAE7] bg-white/70 backdrop-blur-md px-6 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-3">
+      <div className="z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-[#EAEAE7] bg-white/70 px-3 backdrop-blur-md sm:px-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             onClick={onBackToHome}
-            className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-900 px-2 py-1 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Dashboard</span>
+            <span className="hidden sm:inline">Dashboard</span>
           </button>
-          <span className="text-neutral-300">/</span>
-          <h2 className="text-sm font-semibold text-neutral-800 max-w-md truncate">
+          <span className="text-neutral-300 hidden sm:inline">/</span>
+          <h2 className="max-w-[55vw] truncate text-sm font-semibold text-neutral-800 sm:max-w-md">
             {chatTitle || "Conversation"}
           </h2>
         </div>
-
-        {error && (
-          <div
-            className="mx-auto mt-4 w-full max-w-4xl px-4 sm:px-6 md:px-12"
-            role="alert"
-          >
-            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </p>
-          </div>
-        )}
 
         {chatId && onDeleteChat && (
           <button
@@ -79,7 +81,15 @@ export const ActiveChatView = ({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-12 py-6 space-y-6 max-w-4xl w-full mx-auto">
+      <div className="mx-auto w-full max-w-4xl min-h-0 flex-1 space-y-6 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 md:px-12">
+        {error && (
+          <p
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            role="alert"
+          >
+            {error}
+          </p>
+        )}
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-neutral-400 py-16">
             <Sparkles className="w-8 h-8 text-violet-400 mb-2 stroke-[1.5]" />
@@ -88,6 +98,13 @@ export const ActiveChatView = ({
         ) : (
           messages.map((msg, index) => {
             const isUser = msg.role === "user";
+            const sentTime = formatMessageTime(msg.createdAt);
+            const messageContent = isUser
+              ? (msg.content || "").replace(
+                  /\n?\[Include verified citations and references where applicable\]/g,
+                  ""
+                )
+              : msg.content || "";
             return (
               <div
                 key={msg._id || index}
@@ -102,7 +119,7 @@ export const ActiveChatView = ({
                 )}
 
                 <div
-                  className={`relative group max-w-[85%] sm:max-w-[75%] rounded-2xl px-4.5 py-3.5 text-sm leading-relaxed ${
+                  className={`relative group min-w-0 max-w-[90%] sm:max-w-[75%] rounded-2xl px-4 py-3.5 text-sm leading-relaxed ${
                     isUser
                       ? "bg-[#1E1E1E] text-white rounded-br-xs shadow-xs"
                       : "bg-white text-neutral-800 border border-[#EAEAE7] rounded-bl-xs shadow-xs"
@@ -110,11 +127,21 @@ export const ActiveChatView = ({
                 >
                   {/* Message Content */}
                   <div
-                    className="whitespace-pre-wrap break-words"
+                    className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
                     dangerouslySetInnerHTML={{
-                      __html: marked.parse(msg.content || ""),
+                      __html: marked.parse(messageContent),
                     }}
                   />
+                  {sentTime && (
+                    <time
+                      dateTime={sentTime.dateTime}
+                      className={`mt-2 block text-[10px] leading-none ${
+                        isUser ? "text-right text-neutral-300" : "text-neutral-400"
+                      }`}
+                    >
+                      {sentTime.label}
+                    </time>
+                  )}
 
                   {/* Copy Action on AI Message */}
                   {!isUser && (
@@ -168,7 +195,7 @@ export const ActiveChatView = ({
       </div>
 
       {/* Docked Prompt Input Bar at Bottom */}
-      <div className="p-4 sm:p-6 bg-gradient-to-t from-[#FBFBFA] via-[#FBFBFA]/90 to-transparent shrink-0">
+      <div className="shrink-0 bg-gradient-to-t from-[#FBFBFA] via-[#FBFBFA]/90 to-transparent p-2 sm:p-4 md:p-6">
         <PromptInputCard onSend={onSend} isLoading={isLoading} />
       </div>
     </div>

@@ -36,12 +36,12 @@ export const Sidebar = ({
   ];
 
   return (
-    <aside className="w-16 md:w-[72px] h-screen bg-[#FBFBFA] border-r border-[#EAEAE7] flex flex-col items-center justify-between py-5 select-none z-30 shrink-0">
+    <aside className="fixed inset-x-0 bottom-0 z-30 flex h-14 w-full items-center justify-between border-t border-[#EAEAE7] bg-[#FBFBFA]/95 px-1 py-1 backdrop-blur md:static md:h-dvh md:w-[72px] md:flex-col md:border-r md:border-t-0 md:px-0 md:py-5 md:backdrop-blur-none shrink-0 select-none">
       {/* Top Logo */}
-      <div className="flex flex-col items-center gap-7 w-full">
+      <div className="flex min-w-0 flex-1 flex-col items-center gap-7 md:w-full md:flex-none">
         <button
           onClick={() => onTabChange?.("home")}
-          className="group relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-neutral-100 transition-colors"
+          className="group relative hidden h-10 w-10 items-center justify-center rounded-full hover:bg-neutral-100 transition-colors md:flex"
           title="AI Studio"
         >
           {/* Custom Aperture / Sunburst Geometric Logo from the reference image */}
@@ -62,7 +62,7 @@ export const Sidebar = ({
         </button>
 
         {/* Navigation Items */}
-        <nav className="flex flex-col items-center gap-3 w-full px-2.5">
+        <nav className="flex w-full items-center justify-around gap-0.5 md:flex-col md:items-center md:gap-3 md:px-2.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -80,7 +80,7 @@ export const Sidebar = ({
                     onTabChange?.(item.id);
                   }
                 }}
-                className={`group relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-150 ${
+                className={`group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-150 md:h-10 md:w-10 ${
                   isActive
                     ? "bg-[#F3E8FF] text-[#7C3AED] ring-1 ring-[#D8B4FE]/80 shadow-xs"
                     : "text-[#737373] hover:text-[#121212] hover:bg-[#F2F2EF]"
@@ -95,7 +95,7 @@ export const Sidebar = ({
                 )}
 
                 {/* Floating tooltip */}
-                <span className="pointer-events-none absolute left-14 px-2.5 py-1 text-xs font-medium bg-[#1c1b1b] text-white rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-50">
+                <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-md bg-[#1c1b1b] px-2.5 py-1 text-xs font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 md:block">
                   {item.label}
                 </span>
               </button>
@@ -105,32 +105,32 @@ export const Sidebar = ({
       </div>
 
       {/* Bottom Actions */}
-      <div className="flex flex-col items-center gap-3 w-full px-2.5 relative">
+      <div className="relative flex items-center gap-1 md:w-full md:flex-col md:gap-3 md:px-2.5">
         <button
-          className="group relative flex items-center justify-center w-10 h-10 rounded-xl text-[#737373] hover:text-[#121212] hover:bg-[#F2F2EF] transition-colors"
+          className="group relative hidden h-10 w-10 items-center justify-center rounded-xl text-[#737373] hover:text-[#121212] hover:bg-[#F2F2EF] transition-colors md:flex"
           title="Support & Audio"
         >
           <Headphones className="w-5 h-5 stroke-[1.8]" />
-          <span className="pointer-events-none absolute left-14 px-2.5 py-1 text-xs font-medium bg-[#1c1b1b] text-white rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-50">
+          <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-md bg-[#1c1b1b] px-2.5 py-1 text-xs font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 md:block">
             Audio & Support
           </span>
         </button>
 
         <button
-          className="group relative flex items-center justify-center w-10 h-10 rounded-xl text-[#737373] hover:text-[#121212] hover:bg-[#F2F2EF] transition-colors"
+          className="group relative hidden h-10 w-10 items-center justify-center rounded-xl text-[#737373] hover:text-[#121212] hover:bg-[#F2F2EF] transition-colors md:flex"
           title="Settings"
         >
           <Settings className="w-5 h-5 stroke-[1.8]" />
-          <span className="pointer-events-none absolute left-14 px-2.5 py-1 text-xs font-medium bg-[#1c1b1b] text-white rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-50">
+          <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-md bg-[#1c1b1b] px-2.5 py-1 text-xs font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 md:block">
             Settings
           </span>
         </button>
 
         {/* User Avatar */}
-        <div className="relative mt-1">
+        <div className="relative md:mt-1">
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-tr from-violet-500 to-fuchsia-500 text-white font-semibold text-xs shadow-xs hover:ring-2 hover:ring-violet-300 transition-all"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-violet-500 to-fuchsia-500 text-xs font-semibold text-white shadow-xs transition-all hover:ring-2 hover:ring-violet-300"
             title={user?.name || "Account"}
           >
             {user?.name ? user.name.charAt(0).toUpperCase() : "J"}
@@ -138,7 +138,7 @@ export const Sidebar = ({
 
           {/* User popup menu */}
           {showUserMenu && (
-            <div className="absolute left-12 bottom-0 w-52 bg-white rounded-2xl shadow-xl border border-[#EAEAE7] p-3 text-sm z-50 animate-in fade-in slide-in-from-left-2">
+            <div className="absolute bottom-12 right-0 z-50 w-52 animate-in fade-in slide-in-from-left-2 rounded-2xl border border-[#EAEAE7] bg-white p-3 text-sm shadow-xl md:bottom-0 md:left-12 md:right-auto">
               <div className="px-2 py-1.5 border-b border-[#F0F0ED] mb-2">
                 <p className="font-semibold text-neutral-900 truncate">
                   {user?.name || "Jason"}

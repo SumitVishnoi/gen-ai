@@ -37,7 +37,7 @@ export const StarterCards = ({ onSelectCard }) => {
       </h3>
 
       {/* Grid of 4 Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-3.5">
         {examples.map((item) => {
           const Icon = item.icon;
           return (
