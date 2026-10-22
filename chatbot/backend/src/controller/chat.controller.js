@@ -182,10 +182,23 @@ export const sendMessage = async (req, res) => {
       includeCitations,
     });
 
+    const userMessageId = new mongoose.Types.ObjectId();
     const userMessage = await messageModel.create({
+      _id: userMessageId,
       chat: chat._id,
       content: prompt,
       role: "user",
+      files: req.file
+        ? [
+            {
+              fileName: req.file.originalname,
+              mimeType: req.file.mimetype,
+              size: req.file.size,
+              url: `/api/chats/${chat._id}/messages/${userMessageId}/files/0`,
+              data: Buffer.from(req.file.buffer),
+            },
+          ]
+        : [],
     });
 
     const aiMessage = await messageModel.create({
@@ -199,7 +212,20 @@ export const sendMessage = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: aiMessage,
-      userMessage,
+      userMessage: {
+        _id: userMessage._id,
+        chat: userMessage.chat,
+        content: userMessage.content,
+        role: userMessage.role,
+        files: userMessage.files.map(({ url, fileName, mimeType, size }) => ({
+          url,
+          fileName,
+          mimeType,
+          size,
+        })),
+        createdAt: userMessage.createdAt,
+        updatedAt: userMessage.updatedAt,
+      },
       title,
       chat,
       route: result.route,
@@ -216,6 +242,68 @@ export const sendMessage = async (req, res) => {
     if (parser) {
       await parser.destroy().catch(() => {});
     }
+  }
+};
+
+export const getMessageAttachment = async (req, res) => {
+  try {
+    const { chatId, messageId, fileIndex } = req.params;
+    const index = Number(fileIndex);
+
+    if (
+      !mongoose.isValidObjectId(chatId) ||
+      !mongoose.isValidObjectId(messageId) ||
+      !Number.isInteger(index) ||
+      index < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid attachment request",
+      });
+    }
+
+    const chat = await chatModel.findOne({
+      _id: chatId,
+      user: req.user._id,
+    });
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: "Chat not found",
+      });
+    }
+
+    const message = await messageModel
+      .findOne({ _id: messageId, chat: chat._id })
+      .select("+files.data");
+    const file = message?.files[index];
+
+    if (!file?.data || file.mimeType !== "application/pdf") {
+      return res.status(404).json({
+        success: false,
+        message: "Attachment not found",
+      });
+    }
+
+    const safeFileName = String(file.fileName || "document.pdf")
+      .replace(/[\r\n"]/g, "_");
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(safeFileName)}`,
+      "Content-Length": file.data.length,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+
+    return res.send(file.data);
+  } catch (error) {
+    console.error("getMessageAttachment error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to open attachment",
+    });
   }
 };
 
@@ -267,6 +355,7 @@ export const getMessages = async (req, res) => {
 
     const messages = await messageModel
       .find({ chat: chatId })
+      .select("-files.data")
       .sort({ createdAt: 1 });
 
     return res.status(200).json({

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   Sparkles,
-  Paperclip,
+  FileText,
   ChevronDown,
   ArrowUp,
   Loader2,
@@ -135,22 +135,33 @@ export const PromptInputCard = ({
         )}
 
         {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-neutral-100">
+          <div className="mt-3 border-t border-neutral-100 pt-3">
             {attachments.map((file, i) => (
-              <span
+              <div
                 key={i}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 text-xs text-neutral-700 font-medium"
+                className="flex max-w-sm items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3"
               >
-                <Paperclip className="w-3 h-3 text-neutral-500" />
-                <span className="max-w-[120px] truncate">{file.name}</span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                  <FileText className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-medium text-neutral-800">
+                    {file.name}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-neutral-500">
+                    PDF · {(file.size / (1024 * 1024)).toFixed(2)} MB
+                  </span>
+                </span>
                 <button
                   type="button"
                   onClick={() => removeAttachment(i)}
-                  className="hover:text-red-600 transition-colors"
+                  aria-label={`Remove ${file.name}`}
+                  title="Remove attachment"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-red-100 hover:text-red-600"
                 >
                   <X className="w-3 h-3" />
                 </button>
-              </span>
+              </div>
             ))}
           </div>
         )}

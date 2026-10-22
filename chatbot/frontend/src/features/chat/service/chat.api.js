@@ -6,6 +6,9 @@ export const chatApiInstance = axios.create({
   timeout: 60000,
 });
 
+export const getAttachmentUrl = (url) =>
+  new URL(url, chatApiInstance.defaults.baseURL).toString();
+
 export const sendMessage = async ({
   chatId,
   message,

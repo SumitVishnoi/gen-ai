@@ -1,5 +1,5 @@
 import express from "express"
-import { deleteChat, getChats, getMessages, sendMessage } from "../controller/chat.controller.js"
+import { deleteChat, getChats, getMessageAttachment, getMessages, sendMessage } from "../controller/chat.controller.js"
 import { authenticateUser } from "../middlewares/user.middleware.js"
 import multer from "multer";
 
@@ -32,6 +32,8 @@ const handlePdfUpload = (req, res, next) => {
 router.post("/message", authenticateUser, handlePdfUpload, sendMessage)
 
 router.get("/", authenticateUser, getChats)
+
+router.get("/:chatId/messages/:messageId/files/:fileIndex", authenticateUser, getMessageAttachment)
 
 router.get("/:chatId/messages", authenticateUser, getMessages)
 

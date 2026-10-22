@@ -84,6 +84,9 @@ export const useChat = () => {
       _id: pendingId,
       role: "user",
       content,
+      files: file
+        ? [{ fileName: file.name, mimeType: file.type, size: file.size }]
+        : [],
       createdAt: new Date().toISOString(),
     };
 

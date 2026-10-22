@@ -36,36 +36,44 @@ const responseModel = new ChatGoogle({
   model: "gemini-3.5-flash-lite",
 });
 
-const tavilySearch = new TavilySearch({
-  maxResults: 5,
-});
+const tavilySearch = process.env.TAVILY_API_KEY
+  ? new TavilySearch({
+      maxResults: 5,
+    })
+  : null;
 
-const pinecone = new Pinecone({
-  apiKey: process.env.PINECONE_API_KEY,
-});
+const pinecone = process.env.PINECONE_API_KEY
+  ? new Pinecone({
+      apiKey: process.env.PINECONE_API_KEY,
+    })
+  : null;
 
-const pineconeIndex = pinecone.index("chatbot");
+const pineconeIndex = pinecone ? pinecone.index("chatbot") : null;
 
-const embeddings = new GoogleGenerativeAIEmbeddings({
-  apiKey: process.env.GOOGLE_API_KEY,
-  model: "gemini-embedding-001",
-  outputDimensionality: 1024,
-});
+const embeddings = process.env.GOOGLE_API_KEY
+  ? new GoogleGenerativeAIEmbeddings({
+      apiKey: process.env.GOOGLE_API_KEY,
+      model: "gemini-embedding-001",
+      outputDimensionality: 1024,
+    })
+  : null;
 
 // --------------------------------------------------
-// 2. Validate environment variables
+// 2. Environment validation is intentionally deferred so the app can
+//    start for non-AI routes (auth, chat list, etc.) even when API keys are
+//    not configured yet.
 // --------------------------------------------------
 
 if (!process.env.GOOGLE_API_KEY) {
-  throw new Error("GOOGLE_API_KEY is missing from environment variables.");
+  console.warn("GOOGLE_API_KEY is missing. AI chat features will be disabled.");
 }
 
 if (!process.env.PINECONE_API_KEY) {
-  throw new Error("PINECONE_API_KEY is missing from environment variables.");
+  console.warn("PINECONE_API_KEY is missing. PDF search will be disabled.");
 }
 
 if (!process.env.TAVILY_API_KEY) {
-  console.warn("TAVILY_API_KEY is missing. Internet search may fail.");
+  console.warn("TAVILY_API_KEY is missing. Internet search will be disabled.");
 }
 
 // --------------------------------------------------
@@ -215,6 +223,12 @@ Example: {"route":"direct"}
 async function internetSearchNode(state) {
   console.log("--- INTERNET SEARCH NODE EXECUTED ---");
 
+  if (!tavilySearch) {
+    return {
+      webResults: "Internet search is unavailable because TAVILY_API_KEY is not configured.",
+    };
+  }
+
   try {
     const searchResult = await tavilySearch.invoke({
       query: state.userMessage,
@@ -254,6 +268,12 @@ async function ragSearchNode(state) {
 
     return {
       ragResults: "",
+    };
+  }
+
+  if (!pineconeIndex || !embeddings) {
+    return {
+      ragResults: "PDF retrieval is unavailable because Pinecone or Gemini configuration is missing.",
     };
   }
 
@@ -423,6 +443,24 @@ export async function generateChatResponse({
 }) {
   if (!Array.isArray(messages) || messages.length === 0) {
     throw new Error("At least one chat message is required.");
+  }
+
+  if (!process.env.GOOGLE_API_KEY) {
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find(
+        (message) =>
+          message?.role === "user" &&
+          typeof message.content === "string" &&
+          message.content.trim().length > 0
+      );
+
+    return {
+      response:
+        "AI features are not configured on this server. Please add the required API keys to enable chat responses.",
+      route: "direct",
+      userQuestion: lastUserMessage?.content ?? "",
+    };
   }
 
   const formattedMessages = messages

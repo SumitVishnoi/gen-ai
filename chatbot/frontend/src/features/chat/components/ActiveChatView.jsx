@@ -6,9 +6,12 @@ import {
   Check,
   ArrowLeft,
   Trash2,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import { PromptInputCard } from "./PromptInputCard";
 import { marked } from "marked";
+import { getAttachmentUrl } from "../service/chat.api";
 
 const formatMessageTime = (createdAt) => {
   if (!createdAt) return null;
@@ -132,6 +135,51 @@ export const ActiveChatView = ({
                       __html: marked.parse(messageContent),
                     }}
                   />
+                  {isUser && Array.isArray(msg.files) && msg.files.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {msg.files.map((file, fileIndex) => {
+                        const attachmentContent = (
+                          <>
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-red-200">
+                              <FileText className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-xs font-medium">
+                                {file.fileName || "Attached PDF"}
+                              </span>
+                              <span className="mt-0.5 block text-[11px] text-neutral-300">
+                                PDF
+                                {file.size
+                                  ? ` · ${(file.size / (1024 * 1024)).toFixed(2)} MB`
+                                  : ""}
+                              </span>
+                            </span>
+                            {file.url && <ExternalLink className="h-3.5 w-3.5 shrink-0 text-neutral-300" />}
+                          </>
+                        );
+
+                        const className =
+                          "flex max-w-sm items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-2.5 text-left transition-colors hover:bg-white/10";
+
+                        return file.url ? (
+                          <a
+                            key={file.url}
+                            href={getAttachmentUrl(file.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={className}
+                            aria-label={`Open ${file.fileName || "attached PDF"}`}
+                          >
+                            {attachmentContent}
+                          </a>
+                        ) : (
+                          <div key={`${file.fileName}-${fileIndex}`} className={className}>
+                            {attachmentContent}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   {sentTime && (
                     <time
                       dateTime={sentTime.dateTime}

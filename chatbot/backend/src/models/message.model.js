@@ -19,6 +19,12 @@ const messageSchema = new mongoose.Schema(
       {
         url: String,
         fileName: String,
+        mimeType: String,
+        size: Number,
+        data: {
+          type: Buffer,
+          select: false,
+        },
       },
     ],
   },
